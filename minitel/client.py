@@ -198,7 +198,12 @@ class MiniTelClient:
         return False
 
     def disconnect(self):
-        """Close TCP connection"""
+        """
+        Close TCP connection and cleanup resources
+
+        Safely closes the socket connection and sets socket to None.
+        Logs any errors that occur during disconnection.
+        """
         if self.socket:
             try:
                 self.socket.close()

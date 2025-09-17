@@ -94,6 +94,17 @@ class ProtocolEncoder:
         Binary Frame (before Base64):
         CMD (1 byte) | NONCE (4 bytes, big-endian) |
         PAYLOAD (0-65535 bytes) | HASH (32 bytes SHA-256)
+
+        Args:
+            cmd: Command code (0-255)
+            nonce: Nonce value for replay protection
+            payload: Optional payload data
+
+        Returns:
+            Encoded frame data ready for transmission
+
+        Raises:
+            ProtocolError: If encoded frame exceeds size limits
         """
         # Build binary frame components
         cmd_bytes = struct.pack(">B", cmd)

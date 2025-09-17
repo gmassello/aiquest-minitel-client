@@ -23,60 +23,105 @@ except ImportError:
 
     # Basic fallback implementations
     class Console:
+        """Fallback console implementation when Rich is not available"""
+
         def print(self, text, style=None):
+            """Print text to console (fallback implementation)"""
             print(text)
+
         def clear(self):
+            """Clear console (fallback implementation)"""
             # This is a fallback, real clearing is handled by the Console object
             pass
+
         def bell(self):
+            """Ring terminal bell (fallback implementation)"""
             print('\a', end='')
+
         def input(self, prompt=""):
+            """Get user input (fallback implementation)"""
             return input(prompt)
 
     class Panel:
+        """Fallback panel implementation when Rich is not available"""
+
         def __init__(self, content, title="", border_style=""):
+            """Initialize panel with content and title"""
             self.content = content
             self.title = title
 
     class Table:
+        """Fallback table implementation when Rich is not available"""
+
         def __init__(self, **kwargs):
+            """Initialize empty table"""
             self.rows = []
             self.columns = []
+
         def add_column(self, header, **kwargs):
+            """Add column to table"""
             self.columns.append(header)
+
         def add_row(self, *args):
+            """Add row to table"""
             self.rows.append(args)
 
     class Layout:
+        """Fallback layout implementation when Rich is not available"""
+
         def __init__(self, **kwargs):
+            """Initialize layout"""
             pass
+
         def split_column(self, *args):
+            """Split layout into columns"""
             return self
+
         def split_row(self, *args):
+            """Split layout into rows"""
             return self
+
         def update(self, content):
+            """Update layout content"""
             pass
 
     class Live:
+        """Fallback live display implementation when Rich is not available"""
+
         def __init__(self, layout, console=None, refresh_per_second=1):
+            """Initialize live display"""
             self.layout = layout
             self.console = console
+
         def __enter__(self):
+            """Enter context manager"""
             return self
+
         def __exit__(self, *args):
+            """Exit context manager"""
             pass
+
         def update(self, layout):
+            """Update live display"""
             pass
 
     class Text:
+        """Fallback text implementation when Rich is not available"""
+
         def __init__(self, text=""):
+            """Initialize text object"""
             self.text = text
+
         def append(self, text, style=None):
+            """Append text to existing content"""
             self.text += text
 
     class Align:
+        """Fallback alignment implementation when Rich is not available"""
+
         @staticmethod
         def center(content):
+            """Center content (fallback: no-op)"""
             return content
 
     # For now, exit gracefully if Rich not available for TUI
