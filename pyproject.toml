@@ -16,6 +16,9 @@ dependencies = [
     "pydantic>=2.0.0"
 ]
 
+[tool.setuptools.packages.find]
+include = ["minitel*"]
+
 [project.scripts]
 minitel-client = "minitel.client:main"
 minitel-replay = "minitel.replay:main"

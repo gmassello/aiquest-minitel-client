@@ -15,6 +15,10 @@ from .protocol import (
     NonceManager, ProtocolError, FrameValidationError
 )
 from .session import SessionRecorder
+from .validation import (
+    InputValidator, ValidationError,
+    validate_host_or_raise, validate_port_or_raise, validate_payload_or_raise
+)
 
 
 @dataclass
@@ -27,6 +31,26 @@ class ConnectionConfig:
     retry_delay: float = 1.0
     use_ssl: bool = False
     ssl_verify: bool = True
+
+    def __post_init__(self):
+        """Validate configuration parameters"""
+        # Validate and sanitize host
+        self.host = validate_host_or_raise(self.host)
+
+        # Validate and sanitize port
+        self.port = validate_port_or_raise(self.port)
+
+        # Validate timeout
+        timeout_result = InputValidator.validate_timeout(self.timeout)
+        if not timeout_result.is_valid:
+            raise ValidationError(f"Invalid timeout: {timeout_result.error_message}")
+        self.timeout = timeout_result.sanitized_value
+
+        # Validate retry parameters
+        if not isinstance(self.max_retries, int) or self.max_retries < 1:
+            raise ValidationError("max_retries must be a positive integer")
+        if not isinstance(self.retry_delay, (int, float)) or self.retry_delay < 0:
+            raise ValidationError("retry_delay must be a non-negative number")
 
 
 class ConnectionError(Exception):
@@ -89,20 +113,40 @@ class MiniTelClient:
 
                 if self.config.use_ssl:
                     # Wrap socket with SSL/TLS
-                    context = ssl.create_default_context()
-                    if not self.config.ssl_verify:
-                        context.check_hostname = False
-                        context.verify_mode = ssl.CERT_NONE
-                        self.logger.warning(
-                            "SSL certificate verification disabled - "
-                            "not recommended for production"
-                        )
+                    try:
+                        context = ssl.create_default_context()
+                        if not self.config.ssl_verify:
+                            context.check_hostname = False
+                            context.verify_mode = ssl.CERT_NONE
+                            self.logger.warning(
+                                "SSL certificate verification disabled - "
+                                "not recommended for production"
+                            )
 
-                    sock.connect((self.config.host, self.config.port))
-                    sock = context.wrap_socket(
-                        sock, server_hostname=self.config.host
-                    )
-                    self.logger.info("SSL/TLS connection established")
+                        sock.connect((self.config.host, self.config.port))
+                        sock = context.wrap_socket(
+                            sock, server_hostname=self.config.host
+                        )
+                        self.logger.info("SSL/TLS connection established")
+
+                        # Log SSL connection details
+                        cipher = sock.cipher()
+                        if cipher:
+                            self.logger.debug(f"SSL cipher: {cipher[0]} {cipher[1]} {cipher[2]}")
+
+                        cert = sock.getpeercert()
+                        if cert and self.config.ssl_verify:
+                            self.logger.debug(f"Server certificate subject: {cert.get('subject', 'Unknown')}")
+
+                    except ssl.SSLError as e:
+                        self.logger.error(f"SSL/TLS handshake failed: {e}")
+                        raise ConnectionError(f"SSL connection failed: {e}")
+                    except ssl.CertificateError as e:
+                        self.logger.error(f"SSL certificate validation failed: {e}")
+                        raise ConnectionError(f"SSL certificate error: {e}")
+                    except Exception as e:
+                        self.logger.error(f"SSL setup failed: {e}")
+                        raise ConnectionError(f"SSL configuration error: {e}")
                 else:
                     sock.connect((self.config.host, self.config.port))
 
@@ -117,9 +161,17 @@ class MiniTelClient:
                 self.logger.warning(
                     f"Connection timeout on attempt {attempt + 1}"
                 )
-            except socket.error as e:
+            except ConnectionError as e:
                 self.logger.warning(
                     f"Connection failed on attempt {attempt + 1}: {e}"
+                )
+            except socket.error as e:
+                self.logger.warning(
+                    f"Socket error on attempt {attempt + 1}: {e}"
+                )
+            except ssl.SSLError as e:
+                self.logger.warning(
+                    f"SSL error on attempt {attempt + 1}: {e}"
                 )
             except Exception as e:
                 self.logger.error(
@@ -168,6 +220,9 @@ class MiniTelClient:
             raise ConnectionError("Not connected to server")
 
         try:
+            # Validate payload
+            payload = validate_payload_or_raise(payload)
+
             nonce = self.nonce_manager.get_next_client_nonce()
             frame_data = self.encoder.encode_frame(cmd, nonce, payload)
 
@@ -180,6 +235,9 @@ class MiniTelClient:
 
             return True
 
+        except ValidationError as e:
+            self.logger.error(f"Payload validation failed: {e}")
+            return False
         except socket.error as e:
             self.logger.error(f"Failed to send frame: {e}")
             return False
@@ -459,29 +517,23 @@ class MiniTelClient:
             return None
 
         try:
+            # Validate payload format
+            payload = validate_payload_or_raise(payload)
+
             # Decode UTF-8 with strict validation
             override_code = payload.decode('utf-8')
 
-            # Basic validation - remove whitespace
-            override_code = override_code.strip()
-
-            if not override_code:
-                self.logger.error("Override code is empty after trimming whitespace")
+            # Validate override code format and content
+            validation_result = InputValidator.validate_override_code(override_code)
+            if not validation_result.is_valid:
+                self.logger.error(f"Override code validation failed: {validation_result.error_message}")
                 return None
 
-            # Length validation (reasonable bounds for override codes)
-            if len(override_code) < 3 or len(override_code) > 100:
-                self.logger.error(f"Override code length invalid: {len(override_code)} characters")
-                return None
+            return validation_result.sanitized_value
 
-            # Character validation - allow alphanumeric and common separators
-            import re
-            if not re.match(r'^[A-Za-z0-9\-_]+$', override_code):
-                self.logger.warning("Override code contains unexpected characters")
-                # Still return it but log warning - protocol may allow other chars
-
-            return override_code
-
+        except ValidationError as e:
+            self.logger.error(f"Payload validation failed: {e}")
+            return None
         except UnicodeDecodeError as e:
             self.logger.error(f"Invalid UTF-8 encoding in override code: {e}")
             return None
@@ -495,8 +547,8 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="NORAD MiniTel-Lite Emergency Client")
-    parser.add_argument("--host", default="35.153.159.192", help="Server hostname")
-    parser.add_argument("--port", type=int, default=7321, help="Server port")
+    parser.add_argument("--host", required=True, help="Server hostname")
+    parser.add_argument("--port", type=int, required=True, help="Server port")
     parser.add_argument("--timeout", type=float, default=5.0, help="Connection timeout")
     parser.add_argument("--record", action="store_true", help="Enable session recording")
     parser.add_argument("--ssl", action="store_true", help="Use SSL/TLS encryption")
@@ -505,6 +557,22 @@ def main():
                        default="INFO", help="Logging level")
 
     args = parser.parse_args()
+
+    # Validate arguments using validation framework
+    try:
+        # Validate host
+        validate_host_or_raise(args.host)
+
+        # Validate port
+        validate_port_or_raise(args.port)
+
+        # Validate timeout
+        timeout_result = InputValidator.validate_timeout(args.timeout)
+        if not timeout_result.is_valid:
+            parser.error(f"Invalid timeout: {timeout_result.error_message}")
+
+    except ValidationError as e:
+        parser.error(str(e))
 
     # Configure logging
     logging.basicConfig(level=getattr(logging, args.log_level))

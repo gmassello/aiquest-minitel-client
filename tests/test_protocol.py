@@ -46,22 +46,22 @@ class TestFrame:
 
     def test_invalid_command(self):
         """Test frame with invalid command"""
-        with pytest.raises(ValueError, match="Invalid command"):
+        with pytest.raises(FrameValidationError, match="Command code must be an 8-bit unsigned integer"):
             Frame(cmd=256, nonce=0, payload=b"", hash_value=b"x" * 32)
 
     def test_invalid_nonce(self):
         """Test frame with invalid nonce"""
-        with pytest.raises(ValueError, match="Invalid nonce"):
+        with pytest.raises(FrameValidationError, match="Nonce must be a 32-bit unsigned integer"):
             Frame(cmd=Command.HELLO, nonce=0xFFFFFFFF + 1, payload=b"", hash_value=b"x" * 32)
 
     def test_payload_too_large(self):
         """Test frame with payload too large"""
-        with pytest.raises(ValueError, match="Payload too large"):
+        with pytest.raises(FrameValidationError, match="Payload size exceeds maximum"):
             Frame(cmd=Command.HELLO, nonce=0, payload=b"x" * 65536, hash_value=b"x" * 32)
 
     def test_invalid_hash_length(self):
         """Test frame with invalid hash length"""
-        with pytest.raises(ValueError, match="Invalid hash length"):
+        with pytest.raises(FrameValidationError, match="Invalid hash length"):
             Frame(cmd=Command.HELLO, nonce=0, payload=b"", hash_value=b"x" * 31)
 
 

@@ -11,6 +11,8 @@ from enum import IntEnum
 from typing import Tuple, Optional
 from dataclasses import dataclass
 
+from .validation import InputValidator, validate_and_raise, ValidationError
+
 
 class Command(IntEnum):
     """MiniTel-Lite protocol commands"""
@@ -34,16 +36,32 @@ class Frame:
     hash_value: bytes
 
     def __post_init__(self):
-        """Validate frame components"""
-        if not (0 <= self.cmd <= 255):
-            raise ValueError(f"Invalid command: {self.cmd}")
-        if not (0 <= self.nonce <= 0xFFFFFFFF):
-            raise ValueError(f"Invalid nonce: {self.nonce}")
-        if len(self.payload) > 65535:
-            raise ValueError(f"Payload too large: {len(self.payload)} bytes")
+        """Validate frame components using validation framework"""
+        # Validate command code
+        self.cmd = validate_and_raise(
+            InputValidator.validate_command_code,
+            self.cmd,
+            FrameValidationError
+        )
+
+        # Validate nonce
+        self.nonce = validate_and_raise(
+            InputValidator.validate_nonce,
+            self.nonce,
+            FrameValidationError
+        )
+
+        # Validate payload
+        self.payload = validate_and_raise(
+            InputValidator.validate_payload,
+            self.payload,
+            FrameValidationError
+        )
+
+        # Validate hash length
         if len(self.hash_value) != 32:
-            raise ValueError(
-                f"Invalid hash length: {len(self.hash_value)} bytes"
+            raise FrameValidationError(
+                f"Invalid hash length: {len(self.hash_value)} bytes, expected 32"
             )
 
 
