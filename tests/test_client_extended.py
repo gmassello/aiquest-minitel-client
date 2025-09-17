@@ -22,7 +22,10 @@ class TestMiniTelClientExtended:
         config = ConnectionConfig(host="test.com", port=1234)
         client = MiniTelClient(config)
 
-        # Create a valid encoded frame
+        # Advance client nonce first to simulate a sent command
+        client.nonce_manager.get_next_client_nonce()  # Client sends nonce 0
+
+        # Create a valid encoded frame (server responds with nonce 1)
         from minitel.protocol import ProtocolEncoder
         encoder = ProtocolEncoder()
         encoded_frame = encoder.encode_frame(Command.HELLO_ACK, 1, b"test_payload")
@@ -49,7 +52,10 @@ class TestMiniTelClientExtended:
         config = ConnectionConfig(host="test.com", port=1234)
         client = MiniTelClient(config, mock_recorder)
 
-        # Create a valid encoded frame
+        # Advance client nonce first to simulate a sent command
+        client.nonce_manager.get_next_client_nonce()  # Client sends nonce 0
+
+        # Create a valid encoded frame (server responds with nonce 1)
         from minitel.protocol import ProtocolEncoder
         encoder = ProtocolEncoder()
         encoded_frame = encoder.encode_frame(Command.HELLO_ACK, 1, b"test")
@@ -70,7 +76,10 @@ class TestMiniTelClientExtended:
         config = ConnectionConfig(host="test.com", port=1234)
         client = MiniTelClient(config, mock_recorder)
 
-        # Create frame with unknown command
+        # Advance client nonce first to simulate a sent command
+        client.nonce_manager.get_next_client_nonce()  # Client sends nonce 0
+
+        # Create frame with unknown command (server responds with nonce 1)
         from minitel.protocol import ProtocolEncoder
         encoder = ProtocolEncoder()
         encoded_frame = encoder.encode_frame(0xFF, 1, b"test")  # Unknown command
@@ -86,8 +95,8 @@ class TestMiniTelClientExtended:
         mock_recorder.record_response.assert_called_once_with("UNKNOWN_255", 1, b"test")
 
     @patch('socket.socket')
-    def test_receive_frame_nonce_validation_warning(self, mock_socket_class):
-        """Test nonce validation warning"""
+    def test_receive_frame_nonce_validation_violation(self, mock_socket_class):
+        """Test nonce validation protocol violation - connection should be terminated"""
         config = ConnectionConfig(host="test.com", port=1234)
         client = MiniTelClient(config)
 
@@ -103,11 +112,16 @@ class TestMiniTelClientExtended:
         mock_socket.recv.side_effect = [encoded_frame[:2], encoded_frame[2:]]
         client.socket = mock_socket
 
-        with patch.object(client.logger, 'warning') as mock_warning:
+        with patch.object(client.logger, 'error') as mock_error:
             frame = client._receive_frame()
 
-            assert frame is not None
-            mock_warning.assert_called_once()
+            # Protocol violation should terminate connection and return None
+            assert frame is None
+            # Should have disconnected (socket should be None)
+            assert client.socket is None
+            # Should log error (not warning)
+            mock_error.assert_called_once()
+            assert "PROTOCOL VIOLATION" in mock_error.call_args[0][0]
 
     @patch('socket.socket')
     def test_receive_frame_protocol_error(self, mock_socket_class):

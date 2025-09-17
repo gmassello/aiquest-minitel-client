@@ -26,8 +26,8 @@ except ImportError:
         def print(self, text, style=None):
             print(text)
         def clear(self):
-            import os
-            os.system('clear' if os.name == 'posix' else 'cls')
+            # This is a fallback, real clearing is handled by the Console object
+            pass
         def bell(self):
             print('\a', end='')
         def input(self, prompt=""):
@@ -383,7 +383,12 @@ Press any key to return to session replay...
 
 
 def main():
-    """Command-line entry point for session replay"""
+    """
+    Command-line entry point for the session replay tool.
+
+    Parses command-line arguments, lists available sessions,
+    or loads and replays a specific session.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(

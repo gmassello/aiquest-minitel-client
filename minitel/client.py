@@ -546,7 +546,12 @@ class MiniTelClient:
 
 
 def main():
-    """Command-line entry point for MiniTel client"""
+    """
+    Command-line entry point for the MiniTel client.
+
+    Parses command-line arguments, sets up the client,
+    and runs the mission.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="NORAD MiniTel-Lite Emergency Client")
@@ -579,6 +584,7 @@ def main():
 
     # Configure logging
     logging.basicConfig(level=getattr(logging, args.log_level))
+    logger = logging.getLogger(__name__)
 
     # Setup configuration
     config = ConnectionConfig(
@@ -603,15 +609,18 @@ def main():
     if recorder:
         try:
             session_file = recorder.save_session()
-            print(f"Session recorded: {session_file}")
+            logger.info(f"Session recorded: {session_file}")
         except Exception as e:
-            print(f"Warning: Failed to save session recording: {e}")
+            logger.warning(f"Failed to save session recording: {e}")
 
+    # Final mission status output (user-facing)
     if override_code:
+        logger.info("Mission completed successfully - override code retrieved")
         print(f"\n🚨 MISSION SUCCESS! Override code: {override_code}")
         print("Report this code to NORAD Command immediately!")
         return 0
     else:
+        logger.error("Mission failed - unable to retrieve override code")
         print("\n💀 MISSION FAILED! JOSHUA remains in control.")
         print("The world is doomed.")
         return 1
