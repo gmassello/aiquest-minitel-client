@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 from minitel.client import MiniTelClient, ConnectionConfig, ConnectionError
 from minitel.protocol import Command, Frame
 from minitel.session import SessionRecorder
+from minitel.constants import DEFAULT_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_RETRY_DELAY
 
 
 class TestConnectionConfig:
@@ -22,8 +23,8 @@ class TestConnectionConfig:
         config = ConnectionConfig(host="test.com", port=1234)
         assert config.host == "test.com"
         assert config.port == 1234
-        assert config.timeout == 5.0
-        assert config.max_retries == 3
+        assert config.timeout == DEFAULT_TIMEOUT
+        assert config.max_retries == DEFAULT_MAX_RETRIES
         assert config.retry_delay == 1.0
 
     def test_custom_values(self):

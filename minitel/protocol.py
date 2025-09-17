@@ -12,6 +12,11 @@ from typing import Tuple, Optional
 from dataclasses import dataclass
 
 from .validation import InputValidator, validate_and_raise, ValidationError
+from .constants import (
+    HASH_SIZE, COMMAND_SIZE, NONCE_SIZE, MAX_PAYLOAD_SIZE,
+    LENGTH_PREFIX_SIZE, MIN_FRAME_SIZE, MAX_NONCE_VALUE,
+    HASH_VALIDATION_FAILED_MSG, INVALID_FRAME_MSG
+)
 
 
 class Command(IntEnum):
@@ -59,9 +64,9 @@ class Frame:
         )
 
         # Validate hash length
-        if len(self.hash_value) != 32:
+        if len(self.hash_value) != HASH_SIZE:
             raise FrameValidationError(
-                f"Invalid hash length: {len(self.hash_value)} bytes, expected 32"
+                f"Invalid hash length: {len(self.hash_value)} bytes, expected {HASH_SIZE}"
             )
 
 
@@ -152,20 +157,20 @@ class ProtocolDecoder:
         except Exception as e:
             raise ProtocolError(f"Base64 decode failed: {e}")
 
-        # Minimum frame size: CMD(1) + NONCE(4) + HASH(32) = 37 bytes
-        if len(binary_frame) < 37:
-            raise ProtocolError(f"Frame too small: {len(binary_frame)} bytes")
+        # Minimum frame size validation
+        if len(binary_frame) < MIN_FRAME_SIZE:
+            raise ProtocolError(f"Frame too small: {len(binary_frame)} bytes, minimum {MIN_FRAME_SIZE}")
 
         # Extract frame components
-        cmd = struct.unpack(">B", binary_frame[0:1])[0]
-        nonce = struct.unpack(">I", binary_frame[1:5])[0]
-        payload = binary_frame[5:-32]
-        received_hash = binary_frame[-32:]
+        cmd = struct.unpack(">B", binary_frame[0:COMMAND_SIZE])[0]
+        nonce = struct.unpack(">I", binary_frame[COMMAND_SIZE:COMMAND_SIZE+NONCE_SIZE])[0]
+        payload = binary_frame[COMMAND_SIZE+NONCE_SIZE:-HASH_SIZE]
+        received_hash = binary_frame[-HASH_SIZE:]
 
         # Verify hash: SHA-256(CMD + NONCE + PAYLOAD)
-        expected_hash = hashlib.sha256(binary_frame[:-32]).digest()
+        expected_hash = hashlib.sha256(binary_frame[:-HASH_SIZE]).digest()
         if not hmac.compare_digest(received_hash, expected_hash):
-            raise FrameValidationError("Hash validation failed")
+            raise FrameValidationError(HASH_VALIDATION_FAILED_MSG)
 
         return Frame(
             cmd=cmd, nonce=nonce, payload=payload, hash_value=received_hash
@@ -180,10 +185,10 @@ class ProtocolDecoder:
             Expected total frame size (including 2-byte prefix)
             or None if insufficient data
         """
-        if len(data) < 2:
+        if len(data) < LENGTH_PREFIX_SIZE:
             return None
-        length = struct.unpack(">H", data[:2])[0]
-        return 2 + length  # Include the 2-byte length prefix
+        length = struct.unpack(">H", data[:LENGTH_PREFIX_SIZE])[0]
+        return LENGTH_PREFIX_SIZE + length  # Include the length prefix
 
 
 class NonceManager:

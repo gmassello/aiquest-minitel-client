@@ -19,6 +19,11 @@ from .validation import (
     InputValidator, ValidationError,
     validate_host_or_raise, validate_port_or_raise, validate_payload_or_raise
 )
+from .constants import (
+    LOG_FORMAT_NORAD, DEFAULT_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_RETRY_DELAY,
+    SSL_VERIFY_DEFAULT, MISSION_SUCCESS_MSG, MISSION_FAILED_MSG,
+    MISSION_NAME, AGENT_CODENAME, WIRE_ENCODING
+)
 
 
 @dataclass
@@ -26,11 +31,11 @@ class ConnectionConfig:
     """TCP connection configuration"""
     host: str
     port: int
-    timeout: float = 5.0
-    max_retries: int = 3
-    retry_delay: float = 1.0
+    timeout: float = DEFAULT_TIMEOUT
+    max_retries: int = DEFAULT_MAX_RETRIES
+    retry_delay: float = DEFAULT_RETRY_DELAY
     use_ssl: bool = False
-    ssl_verify: bool = True
+    ssl_verify: bool = SSL_VERIFY_DEFAULT
 
     def __post_init__(self):
         """Validate configuration parameters"""
@@ -86,9 +91,7 @@ class MiniTelClient:
         """Configure logging for mission operations"""
         if not self.logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s - NORAD-%(name)s - %(levelname)s - %(message)s'
-            )
+            formatter = logging.Formatter(LOG_FORMAT_NORAD)
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
@@ -410,7 +413,7 @@ class MiniTelClient:
         Returns:
             Retrieved override code or None if mission failed
         """
-        self.logger.info("=== MISSION START: JOSHUA INFILTRATION ===")
+        self.logger.info(f"=== MISSION START: {MISSION_NAME} ===")
 
         try:
             # Execute mission phases
@@ -524,7 +527,7 @@ class MiniTelClient:
             payload = validate_payload_or_raise(payload)
 
             # Decode UTF-8 with strict validation
-            override_code = payload.decode('utf-8')
+            override_code = payload.decode(WIRE_ENCODING)
 
             # Validate override code format and content
             validation_result = InputValidator.validate_override_code(override_code)
@@ -557,7 +560,7 @@ def main():
     parser = argparse.ArgumentParser(description="NORAD MiniTel-Lite Emergency Client")
     parser.add_argument("--host", required=True, help="Server hostname")
     parser.add_argument("--port", type=int, required=True, help="Server port")
-    parser.add_argument("--timeout", type=float, default=5.0, help="Connection timeout")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="Connection timeout")
     parser.add_argument("--record", action="store_true", help="Enable session recording")
     parser.add_argument("--ssl", action="store_true", help="Use SSL/TLS encryption")
     parser.add_argument("--no-ssl-verify", action="store_true", help="Disable SSL certificate verification (not recommended)")
@@ -616,12 +619,12 @@ def main():
     # Final mission status output (user-facing)
     if override_code:
         logger.info("Mission completed successfully - override code retrieved")
-        print(f"\n🚨 MISSION SUCCESS! Override code: {override_code}")
+        print(f"\n{MISSION_SUCCESS_MSG} {override_code}")
         print("Report this code to NORAD Command immediately!")
         return 0
     else:
         logger.error("Mission failed - unable to retrieve override code")
-        print("\n💀 MISSION FAILED! JOSHUA remains in control.")
+        print(f"\n{MISSION_FAILED_MSG}")
         print("The world is doomed.")
         return 1
 

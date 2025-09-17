@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 from minitel.client import MiniTelClient, ConnectionConfig, main
 from minitel.protocol import Command, Frame, ProtocolError, FrameValidationError
 from minitel.session import SessionRecorder
+from minitel.constants import DEFAULT_TIMEOUT
 
 
 class TestMiniTelClientExtended:
@@ -219,7 +220,7 @@ class TestMainFunction:
         mock_parse_args.return_value = Mock(
             host="test.com",
             port=1234,
-            timeout=5.0,
+            timeout=DEFAULT_TIMEOUT,
             record=False,
             log_level="INFO"
         )
@@ -240,7 +241,7 @@ class TestMainFunction:
         mock_parse_args.return_value = Mock(
             host="test.com",
             port=1234,
-            timeout=5.0,
+            timeout=DEFAULT_TIMEOUT,
             record=False,
             log_level="INFO"
         )
@@ -261,7 +262,7 @@ class TestMainFunction:
         mock_parse_args.return_value = Mock(
             host="test.com",
             port=1234,
-            timeout=5.0,
+            timeout=DEFAULT_TIMEOUT,
             record=True,
             log_level="DEBUG"
         )

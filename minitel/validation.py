@@ -8,6 +8,13 @@ import ipaddress
 from typing import Any, Optional, Union
 from dataclasses import dataclass
 
+from .constants import (
+    MAX_HOSTNAME_LENGTH, MAX_PAYLOAD_SIZE, MAX_OVERRIDE_CODE_LENGTH,
+    MIN_OVERRIDE_CODE_LENGTH, MAX_NONCE_VALUE, MIN_NONCE_VALUE,
+    MAX_COMMAND_CODE, MIN_COMMAND_CODE, MIN_PORT_NUMBER, MAX_PORT_NUMBER,
+    MAX_TIMEOUT_SECONDS, HOSTNAME_PATTERN, OVERRIDE_CODE_PATTERN
+)
+
 
 class ValidationError(Exception):
     """Base exception for validation errors"""
@@ -46,18 +53,8 @@ class InputValidator:
     """
 
     # Regular expression patterns for common validations
-    HOSTNAME_PATTERN = re.compile(
-        r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?'
-        r'(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-    )
-
-    OVERRIDE_CODE_PATTERN = re.compile(r'^[A-Za-z0-9\-_]+$')
-
-    # Security constraints
-    MAX_HOSTNAME_LENGTH = 253
-    MAX_PAYLOAD_SIZE = 65535
-    MAX_OVERRIDE_CODE_LENGTH = 100
-    MIN_OVERRIDE_CODE_LENGTH = 3
+    HOSTNAME_REGEX = re.compile(HOSTNAME_PATTERN)
+    OVERRIDE_CODE_REGEX = re.compile(OVERRIDE_CODE_PATTERN)
 
     @classmethod
     def validate_host(cls, host: str) -> ValidationResult:
@@ -85,10 +82,10 @@ class InputValidator:
                 error_message="Host cannot be empty"
             )
 
-        if len(sanitized_host) > cls.MAX_HOSTNAME_LENGTH:
+        if len(sanitized_host) > MAX_HOSTNAME_LENGTH:
             return ValidationResult(
                 is_valid=False,
-                error_message=f"Host length exceeds maximum of {cls.MAX_HOSTNAME_LENGTH} characters"
+                error_message=f"Host length exceeds maximum of {MAX_HOSTNAME_LENGTH} characters"
             )
 
         # Try to parse as IP address first
@@ -114,7 +111,7 @@ class InputValidator:
             pass
 
         # Validate as hostname
-        if not cls.HOSTNAME_PATTERN.match(sanitized_host):
+        if not cls.HOSTNAME_REGEX.match(sanitized_host):
             return ValidationResult(
                 is_valid=False,
                 error_message="Invalid hostname format"
@@ -165,10 +162,10 @@ class InputValidator:
                 error_message="Port must be an integer"
             )
 
-        if not (1 <= port <= 65535):
+        if not (MIN_PORT_NUMBER <= port <= MAX_PORT_NUMBER):
             return ValidationResult(
                 is_valid=False,
-                error_message="Port must be between 1 and 65535"
+                error_message=f"Port must be between {MIN_PORT_NUMBER} and {MAX_PORT_NUMBER}"
             )
 
         # Security check: warn about privileged ports
@@ -214,10 +211,10 @@ class InputValidator:
                 error_message="Timeout must be greater than 0"
             )
 
-        if timeout > 300:  # 5 minutes max
+        if timeout > MAX_TIMEOUT_SECONDS:
             return ValidationResult(
                 is_valid=False,
-                error_message="Timeout cannot exceed 300 seconds"
+                error_message=f"Timeout cannot exceed {MAX_TIMEOUT_SECONDS} seconds"
             )
 
         return ValidationResult(
@@ -242,10 +239,10 @@ class InputValidator:
                 error_message="Payload must be bytes"
             )
 
-        if len(payload) > cls.MAX_PAYLOAD_SIZE:
+        if len(payload) > MAX_PAYLOAD_SIZE:
             return ValidationResult(
                 is_valid=False,
-                error_message=f"Payload size exceeds maximum of {cls.MAX_PAYLOAD_SIZE} bytes"
+                error_message=f"Payload size exceeds maximum of {MAX_PAYLOAD_SIZE} bytes"
             )
 
         # Check for null bytes in text payloads (potential injection)
@@ -286,20 +283,20 @@ class InputValidator:
                 error_message="Override code cannot be empty"
             )
 
-        if len(sanitized_code) < cls.MIN_OVERRIDE_CODE_LENGTH:
+        if len(sanitized_code) < MIN_OVERRIDE_CODE_LENGTH:
             return ValidationResult(
                 is_valid=False,
-                error_message=f"Override code must be at least {cls.MIN_OVERRIDE_CODE_LENGTH} characters"
+                error_message=f"Override code must be at least {MIN_OVERRIDE_CODE_LENGTH} characters"
             )
 
-        if len(sanitized_code) > cls.MAX_OVERRIDE_CODE_LENGTH:
+        if len(sanitized_code) > MAX_OVERRIDE_CODE_LENGTH:
             return ValidationResult(
                 is_valid=False,
-                error_message=f"Override code cannot exceed {cls.MAX_OVERRIDE_CODE_LENGTH} characters"
+                error_message=f"Override code cannot exceed {MAX_OVERRIDE_CODE_LENGTH} characters"
             )
 
         # Validate character set
-        if not cls.OVERRIDE_CODE_PATTERN.match(sanitized_code):
+        if not cls.OVERRIDE_CODE_REGEX.match(sanitized_code):
             return ValidationResult(
                 is_valid=False,
                 error_message="Override code contains invalid characters (only alphanumeric, hyphens, and underscores allowed)"
@@ -338,10 +335,10 @@ class InputValidator:
             )
 
         # Nonce must be 32-bit unsigned integer
-        if not (0 <= nonce <= 0xFFFFFFFF):
+        if not (MIN_NONCE_VALUE <= nonce <= MAX_NONCE_VALUE):
             return ValidationResult(
                 is_valid=False,
-                error_message="Nonce must be a 32-bit unsigned integer (0-4294967295)"
+                error_message=f"Nonce must be a 32-bit unsigned integer ({MIN_NONCE_VALUE}-{MAX_NONCE_VALUE})"
             )
 
         return ValidationResult(
@@ -377,10 +374,10 @@ class InputValidator:
             )
 
         # Command must be 8-bit unsigned integer
-        if not (0 <= cmd <= 255):
+        if not (MIN_COMMAND_CODE <= cmd <= MAX_COMMAND_CODE):
             return ValidationResult(
                 is_valid=False,
-                error_message="Command code must be an 8-bit unsigned integer (0-255)"
+                error_message=f"Command code must be an 8-bit unsigned integer ({MIN_COMMAND_CODE}-{MAX_COMMAND_CODE})"
             )
 
         return ValidationResult(

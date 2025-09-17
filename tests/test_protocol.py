@@ -12,6 +12,10 @@ from minitel.protocol import (
     Command, Frame, ProtocolEncoder, ProtocolDecoder,
     NonceManager, ProtocolError, FrameValidationError
 )
+from minitel.constants import (
+    HASH_SIZE, COMMAND_SIZE, NONCE_SIZE, MAX_PAYLOAD_SIZE,
+    MAX_NONCE_VALUE, MAX_COMMAND_CODE, MAX_FRAME_SIZE
+)
 
 
 class TestCommand:
@@ -37,32 +41,32 @@ class TestFrame:
             cmd=Command.HELLO,
             nonce=12345,
             payload=b"test",
-            hash_value=b"x" * 32
+            hash_value=b"x" * HASH_SIZE
         )
         assert frame.cmd == Command.HELLO
         assert frame.nonce == 12345
         assert frame.payload == b"test"
-        assert len(frame.hash_value) == 32
+        assert len(frame.hash_value) == HASH_SIZE
 
     def test_invalid_command(self):
         """Test frame with invalid command"""
         with pytest.raises(FrameValidationError, match="Command code must be an 8-bit unsigned integer"):
-            Frame(cmd=256, nonce=0, payload=b"", hash_value=b"x" * 32)
+            Frame(cmd=MAX_COMMAND_CODE + 1, nonce=0, payload=b"", hash_value=b"x" * HASH_SIZE)
 
     def test_invalid_nonce(self):
         """Test frame with invalid nonce"""
         with pytest.raises(FrameValidationError, match="Nonce must be a 32-bit unsigned integer"):
-            Frame(cmd=Command.HELLO, nonce=0xFFFFFFFF + 1, payload=b"", hash_value=b"x" * 32)
+            Frame(cmd=Command.HELLO, nonce=MAX_NONCE_VALUE + 1, payload=b"", hash_value=b"x" * HASH_SIZE)
 
     def test_payload_too_large(self):
         """Test frame with payload too large"""
         with pytest.raises(FrameValidationError, match="Payload size exceeds maximum"):
-            Frame(cmd=Command.HELLO, nonce=0, payload=b"x" * 65536, hash_value=b"x" * 32)
+            Frame(cmd=Command.HELLO, nonce=0, payload=b"x" * (MAX_PAYLOAD_SIZE + 1), hash_value=b"x" * HASH_SIZE)
 
     def test_invalid_hash_length(self):
         """Test frame with invalid hash length"""
         with pytest.raises(FrameValidationError, match="Invalid hash length"):
-            Frame(cmd=Command.HELLO, nonce=0, payload=b"", hash_value=b"x" * 31)
+            Frame(cmd=Command.HELLO, nonce=0, payload=b"", hash_value=b"x" * (HASH_SIZE - 1))
 
 
 class TestProtocolEncoder:
@@ -81,21 +85,21 @@ class TestProtocolEncoder:
 
         # Decode and validate binary frame
         binary_frame = base64.b64decode(b64_data)
-        assert len(binary_frame) == 1 + 4 + 0 + 32  # CMD + NONCE + PAYLOAD + HASH
+        assert len(binary_frame) == COMMAND_SIZE + NONCE_SIZE + 0 + HASH_SIZE  # CMD + NONCE + PAYLOAD + HASH
 
         # Validate components
-        cmd = struct.unpack(">B", binary_frame[0:1])[0]
-        nonce = struct.unpack(">I", binary_frame[1:5])[0]
-        payload = binary_frame[5:-32]
-        hash_value = binary_frame[-32:]
+        cmd = struct.unpack(">B", binary_frame[0:COMMAND_SIZE])[0]
+        nonce = struct.unpack(">I", binary_frame[COMMAND_SIZE:COMMAND_SIZE+NONCE_SIZE])[0]
+        payload = binary_frame[COMMAND_SIZE+NONCE_SIZE:-HASH_SIZE]
+        hash_value = binary_frame[-HASH_SIZE:]
 
         assert cmd == Command.HELLO
         assert nonce == 0
         assert payload == b""
-        assert len(hash_value) == 32
+        assert len(hash_value) == HASH_SIZE
 
         # Validate hash
-        expected_hash = hashlib.sha256(binary_frame[:-32]).digest()
+        expected_hash = hashlib.sha256(binary_frame[:-HASH_SIZE]).digest()
         assert hash_value == expected_hash
 
     def test_encode_with_payload(self):
@@ -108,17 +112,17 @@ class TestProtocolEncoder:
         length = struct.unpack(">H", frame_data[:2])[0]
         binary_frame = base64.b64decode(frame_data[2:])
 
-        cmd = struct.unpack(">B", binary_frame[0:1])[0]
-        nonce = struct.unpack(">I", binary_frame[1:5])[0]
-        payload = binary_frame[5:-32]
-        hash_value = binary_frame[-32:]
+        cmd = struct.unpack(">B", binary_frame[0:COMMAND_SIZE])[0]
+        nonce = struct.unpack(">I", binary_frame[COMMAND_SIZE:COMMAND_SIZE+NONCE_SIZE])[0]
+        payload = binary_frame[COMMAND_SIZE+NONCE_SIZE:-HASH_SIZE]
+        hash_value = binary_frame[-HASH_SIZE:]
 
         assert cmd == Command.DUMP
         assert nonce == 42
         assert payload == test_payload
 
         # Validate hash
-        expected_hash = hashlib.sha256(binary_frame[:-32]).digest()
+        expected_hash = hashlib.sha256(binary_frame[:-HASH_SIZE]).digest()
         assert hash_value == expected_hash
 
     def test_encode_large_payload(self):
@@ -133,7 +137,7 @@ class TestProtocolEncoder:
     def test_encode_frame_too_large(self):
         """Test encoding frame that becomes too large after Base64"""
         encoder = ProtocolEncoder()
-        # Create payload that will result in Base64 > 65535 bytes
+        # Create payload that will result in Base64 > MAX_FRAME_SIZE bytes
         huge_payload = b"x" * 50000  # Should cause encoded frame to exceed limit
 
         with pytest.raises(ProtocolError, match="Encoded frame too large"):
@@ -156,7 +160,7 @@ class TestProtocolDecoder:
         assert frame.cmd == Command.HELLO
         assert frame.nonce == 0
         assert frame.payload == b""
-        assert len(frame.hash_value) == 32
+        assert len(frame.hash_value) == HASH_SIZE
 
     def test_decode_with_payload(self):
         """Test decoding frame with payload"""
@@ -220,7 +224,7 @@ class TestProtocolDecoder:
         cmd = struct.pack(">B", Command.HELLO)
         nonce = struct.pack(">I", 0)
         payload = b""
-        invalid_hash = b"x" * 32  # Wrong hash
+        invalid_hash = b"x" * HASH_SIZE  # Wrong hash
 
         binary_frame = cmd + nonce + payload + invalid_hash
         b64_data = base64.b64encode(binary_frame)

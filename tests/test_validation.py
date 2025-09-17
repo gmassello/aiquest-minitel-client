@@ -9,6 +9,11 @@ from minitel.validation import (
     HostValidationError, PortValidationError, PayloadValidationError,
     validate_host_or_raise, validate_port_or_raise, validate_payload_or_raise
 )
+from minitel.constants import (
+    MAX_HOSTNAME_LENGTH, MAX_PAYLOAD_SIZE, MAX_PORT_NUMBER,
+    MAX_TIMEOUT_SECONDS, MAX_NONCE_VALUE, MAX_COMMAND_CODE,
+    DEFAULT_TIMEOUT
+)
 
 
 class TestInputValidator:
@@ -64,7 +69,7 @@ class TestInputValidator:
         assert not result.is_valid
 
         # Too long hostname
-        long_hostname = "a" * 300 + ".com"
+        long_hostname = "a" * (MAX_HOSTNAME_LENGTH + 50) + ".com"
         result = InputValidator.validate_host(long_hostname)
         assert not result.is_valid
 
@@ -79,7 +84,7 @@ class TestInputValidator:
         assert result.is_valid
         assert result.sanitized_value == 443
 
-        result = InputValidator.validate_port(65535)
+        result = InputValidator.validate_port(MAX_PORT_NUMBER)
         assert result.is_valid
 
         result = InputValidator.validate_port(1)
@@ -103,9 +108,9 @@ class TestInputValidator:
 
     def test_validate_timeout_valid_cases(self):
         """Test validation of valid timeout values"""
-        result = InputValidator.validate_timeout(5.0)
+        result = InputValidator.validate_timeout(DEFAULT_TIMEOUT)
         assert result.is_valid
-        assert result.sanitized_value == 5.0
+        assert result.sanitized_value == DEFAULT_TIMEOUT
 
         result = InputValidator.validate_timeout("10.5")
         assert result.is_valid
@@ -218,7 +223,7 @@ class TestInputValidator:
         result = InputValidator.validate_nonce(-1)
         assert not result.is_valid
 
-        result = InputValidator.validate_nonce(0x100000000)  # 2^32
+        result = InputValidator.validate_nonce(MAX_NONCE_VALUE + 1)  # 2^32
         assert not result.is_valid
 
         # Invalid format
@@ -359,9 +364,9 @@ class TestValidationIntegration:
     def test_validation_edge_cases(self):
         """Test validation with edge case values"""
         # Maximum valid values
-        max_port = InputValidator.validate_port(65535)
-        max_timeout = InputValidator.validate_timeout(300.0)
-        large_payload = InputValidator.validate_payload(b"x" * 65535)
+        max_port = InputValidator.validate_port(MAX_PORT_NUMBER)
+        max_timeout = InputValidator.validate_timeout(MAX_TIMEOUT_SECONDS)
+        large_payload = InputValidator.validate_payload(b"x" * MAX_PAYLOAD_SIZE)
 
         assert all([
             max_port.is_valid,
