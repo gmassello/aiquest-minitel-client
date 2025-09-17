@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiquest-minitel"
+version = "1.0.0"
+description = "AI Quest Challenge - MiniTel-Lite Client"
+authors = [{name = "Agent LIGHTMAN", email = "lightman@norad.mil"}]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0"
+]
+
+[project.scripts]
+minitel-client = "minitel.client:main"
+minitel-replay = "minitel.replay:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=minitel --cov-report=html --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["minitel"]
+omit = ["tests/*"]

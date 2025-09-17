@@ -1,0 +1,83 @@
+{
+  "session_metadata": {
+    "session_id": "20250917_095542",
+    "start_time": 1758113742.752039,
+    "end_time": 1758113743.6566641,
+    "total_interactions": 8,
+    "duration_seconds": 0.9046251773834229
+  },
+  "interactions": [
+    {
+      "timestamp": 1758113742.934572,
+      "step_number": 1,
+      "interaction_type": "request",
+      "command": "HELLO",
+      "nonce": 0,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.115015,
+      "step_number": 2,
+      "interaction_type": "response",
+      "command": "HELLO_ACK",
+      "nonce": 1,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.115198,
+      "step_number": 3,
+      "interaction_type": "request",
+      "command": "DUMP",
+      "nonce": 2,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.296331,
+      "step_number": 4,
+      "interaction_type": "response",
+      "command": "DUMP_FAILED",
+      "nonce": 3,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.2964962,
+      "step_number": 5,
+      "interaction_type": "request",
+      "command": "DUMP",
+      "nonce": 4,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.476324,
+      "step_number": 6,
+      "interaction_type": "response",
+      "command": "DUMP_OK",
+      "nonce": 5,
+      "payload_data": "A1-P0D5-OVR-2030",
+      "payload_size": 16
+    },
+    {
+      "timestamp": 1758113743.4764988,
+      "step_number": 7,
+      "interaction_type": "request",
+      "command": "STOP_CMD",
+      "nonce": 6,
+      "payload_data": "",
+      "payload_size": 0
+    },
+    {
+      "timestamp": 1758113743.6564128,
+      "step_number": 8,
+      "interaction_type": "response",
+      "command": "STOP_OK",
+      "nonce": 7,
+      "payload_data": "",
+      "payload_size": 0
+    }
+  ]
+}
