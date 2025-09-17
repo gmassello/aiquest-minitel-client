@@ -107,8 +107,10 @@ This is a time-sensitive challenge simulation where:
 
 ## Server Connection
 
-**Current Server Details:**
-- Host: 35.153.159.192
-- Port: 7321
+**Server Configuration:**
+- Host: Provided via command-line parameter (`--host`)
+- Port: Provided via command-line parameter (`--port`)
 
-The application must handle the connection details as command-line parameters or configuration to allow for different server endpoints during testing and deployment.
+The application requires connection details as command-line parameters to allow for different server endpoints during testing and deployment. This ensures no hardcoded server information in the codebase.
+
+**Security Note:** Server endpoints should never be hardcoded in source code or documentation to maintain security best practices and contest compliance.
