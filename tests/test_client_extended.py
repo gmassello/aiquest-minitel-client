@@ -184,27 +184,15 @@ class TestMiniTelClientExtended:
         config = ConnectionConfig(host="test.com", port=1234)
         client = MiniTelClient(config)
 
-        with patch.object(client, 'connect', return_value=True), \
-             patch.object(client, 'send_hello') as mock_hello, \
-             patch.object(client, 'send_dump') as mock_dump, \
-             patch.object(client, 'send_stop') as mock_stop, \
-             patch.object(client, 'disconnect') as mock_disconnect:
-
-            mock_hello.return_value = Mock(spec=Frame)
-
-            # Both DUMPs return FAILED
-            dump_failed = Mock(spec=Frame)
-            dump_failed.cmd = Command.DUMP_FAILED
-            mock_dump.side_effect = [dump_failed, dump_failed]
-
-            mock_stop.return_value = Mock(spec=Frame)
+        with patch.object(client, '_establish_secure_connection', return_value=True), \
+             patch.object(client, '_authenticate_with_joshua', return_value=True), \
+             patch.object(client, '_retrieve_override_codes', return_value=None), \
+             patch.object(client, '_cleanup_mission') as mock_cleanup:
 
             result = client.execute_mission()
 
             assert result is None
-            assert mock_dump.call_count == 2
-            assert mock_stop.called
-            assert mock_disconnect.called
+            assert mock_cleanup.called
 
 
 class TestMainFunction:

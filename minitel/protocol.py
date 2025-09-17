@@ -5,6 +5,7 @@ Handles binary frame encoding/decoding for NORAD emergency communications.
 
 import struct
 import hashlib
+import hmac
 import base64
 from enum import IntEnum
 from typing import Tuple, Optional
@@ -140,7 +141,7 @@ class ProtocolDecoder:
 
         # Verify hash: SHA-256(CMD + NONCE + PAYLOAD)
         expected_hash = hashlib.sha256(binary_frame[:-32]).digest()
-        if received_hash != expected_hash:
+        if not hmac.compare_digest(received_hash, expected_hash):
             raise FrameValidationError("Hash validation failed")
 
         return Frame(cmd=cmd, nonce=nonce, payload=payload, hash_value=received_hash)

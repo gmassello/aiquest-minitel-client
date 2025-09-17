@@ -8,6 +8,7 @@ import os
 from typing import List, Optional
 from datetime import datetime
 
+RICH_AVAILABLE = True
 try:
     from rich.console import Console
     from rich.table import Table
@@ -17,8 +18,26 @@ try:
     from rich.live import Live
     from rich.align import Align
 except ImportError:
-    print("Error: Rich library not available. Install with: pip install rich")
-    sys.exit(1)
+    RICH_AVAILABLE = False
+    print("Warning: Rich library not available. Using basic terminal mode.")
+
+    # Basic fallback implementations
+    class Console:
+        def print(self, text, style=None):
+            print(text)
+        def clear(self):
+            import os
+            os.system('clear' if os.name == 'posix' else 'cls')
+        def bell(self):
+            print('\a', end='')
+        def input(self, prompt=""):
+            return input(prompt)
+
+    # For now, exit gracefully if Rich not available for TUI
+    # In production, implement full terminal fallback
+    if __name__ == "__main__":
+        print("Error: TUI replay requires Rich library. Install with: pip install rich")
+        sys.exit(1)
 
 from .session import SessionEntry, SessionLoader
 

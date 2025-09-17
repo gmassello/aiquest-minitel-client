@@ -4,6 +4,7 @@ Agent LIGHTMAN's tool to infiltrate JOSHUA and retrieve override codes.
 """
 
 import socket
+import ssl
 import time
 import logging
 from typing import Optional, Tuple, List
@@ -24,6 +25,8 @@ class ConnectionConfig:
     timeout: float = 5.0
     max_retries: int = 3
     retry_delay: float = 1.0
+    use_ssl: bool = False
+    ssl_verify: bool = True
 
 
 class ConnectionError(Exception):
@@ -69,13 +72,29 @@ class MiniTelClient:
             True if connection successful, False otherwise
         """
         for attempt in range(self.config.max_retries):
+            sock = None
             try:
                 self.logger.info(f"Attempting connection to {self.config.host}:{self.config.port} (attempt {attempt + 1})")
 
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.socket.settimeout(self.config.timeout)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(self.config.timeout)
 
-                self.socket.connect((self.config.host, self.config.port))
+                if self.config.use_ssl:
+                    # Wrap socket with SSL/TLS
+                    context = ssl.create_default_context()
+                    if not self.config.ssl_verify:
+                        context.check_hostname = False
+                        context.verify_mode = ssl.CERT_NONE
+                        self.logger.warning("SSL certificate verification disabled - not recommended for production")
+
+                    sock.connect((self.config.host, self.config.port))
+                    sock = context.wrap_socket(sock, server_hostname=self.config.host)
+                    self.logger.info("SSL/TLS connection established")
+                else:
+                    sock.connect((self.config.host, self.config.port))
+
+                # Only assign to self.socket after successful connection
+                self.socket = sock
                 self.nonce_manager.reset()
 
                 self.logger.info("Connection established successfully")
@@ -88,9 +107,12 @@ class MiniTelClient:
             except Exception as e:
                 self.logger.error(f"Unexpected error on attempt {attempt + 1}: {e}")
 
-            if self.socket:
-                self.socket.close()
-                self.socket = None
+            # Clean up failed socket attempt
+            if sock:
+                try:
+                    sock.close()
+                except Exception:
+                    pass  # Ignore cleanup errors
 
             if attempt < self.config.max_retries - 1:
                 self.logger.info(f"Retrying in {self.config.retry_delay} seconds...")
@@ -296,61 +318,148 @@ class MiniTelClient:
         """
         Execute the complete NORAD infiltration mission
 
-        Mission sequence:
-        1. Connect to server
-        2. Send HELLO and authenticate
-        3. Send DUMP command twice to retrieve override code
-        4. Send STOP_CMD to terminate session
-        5. Disconnect
-
         Returns:
             Retrieved override code or None if mission failed
         """
-        override_code = None
+        self.logger.info("=== MISSION START: JOSHUA INFILTRATION ===")
 
         try:
-            # Phase 1: Establish connection
-            self.logger.info("=== MISSION START: JOSHUA INFILTRATION ===")
-            if not self.connect():
-                self.logger.error("Mission failed: Unable to connect to JOSHUA")
+            # Execute mission phases
+            if not self._establish_secure_connection():
                 return None
 
-            # Phase 2: Authenticate with HELLO protocol
-            hello_response = self.send_hello()
-            if not hello_response:
-                self.logger.error("Mission failed: Authentication failed")
+            if not self._authenticate_with_joshua():
                 return None
 
-            # Phase 3: First DUMP attempt (expected to fail)
-            dump1_response = self.send_dump()
-            if not dump1_response:
-                self.logger.error("Mission failed: First DUMP command failed")
+            override_code = self._retrieve_override_codes()
+            if not override_code:
                 return None
 
-            # Phase 4: Second DUMP attempt (should succeed)
-            dump2_response = self.send_dump()
-            if not dump2_response:
-                self.logger.error("Mission failed: Second DUMP command failed")
-                return None
-
-            if dump2_response.cmd == Command.DUMP_OK:
-                override_code = dump2_response.payload.decode('utf-8', errors='replace')
-                self.logger.info(f"SUCCESS: Override code retrieved: {override_code}")
-            else:
-                self.logger.error("Mission failed: Second DUMP did not return override code")
-
-            # Phase 5: Clean termination
-            self.send_stop()
+            self._terminate_session_gracefully()
+            return override_code
 
         except Exception as e:
             self.logger.error(f"Mission failed with unexpected error: {e}")
-
+            return None
         finally:
-            # Always disconnect
-            self.disconnect()
-            self.logger.info("=== MISSION END ===")
+            self._cleanup_mission()
 
-        return override_code
+    def _establish_secure_connection(self) -> bool:
+        """
+        Phase 1: Establish connection to JOSHUA system
+
+        Returns:
+            True if connection successful, False otherwise
+        """
+        if not self.connect():
+            self.logger.error("Mission failed: Unable to connect to JOSHUA")
+            return False
+        return True
+
+    def _authenticate_with_joshua(self) -> bool:
+        """
+        Phase 2: Authenticate with HELLO protocol
+
+        Returns:
+            True if authentication successful, False otherwise
+        """
+        hello_response = self.send_hello()
+        if not hello_response:
+            self.logger.error("Mission failed: Authentication failed")
+            return False
+        return True
+
+    def _retrieve_override_codes(self) -> Optional[str]:
+        """
+        Phase 3 & 4: Execute DUMP commands to retrieve override codes
+
+        According to intelligence, first DUMP fails, second succeeds.
+
+        Returns:
+            Override code string if successful, None otherwise
+        """
+        # First DUMP attempt (expected to fail)
+        dump1_response = self.send_dump()
+        if not dump1_response:
+            self.logger.error("Mission failed: First DUMP command failed")
+            return None
+
+        # Second DUMP attempt (should succeed)
+        dump2_response = self.send_dump()
+        if not dump2_response:
+            self.logger.error("Mission failed: Second DUMP command failed")
+            return None
+
+        # Validate successful response
+        if dump2_response.cmd == Command.DUMP_OK:
+            override_code = self._extract_override_code(dump2_response.payload)
+            if override_code:
+                self.logger.info("SUCCESS: Override code retrieved successfully")
+                return override_code
+            else:
+                self.logger.error("Mission failed: Invalid override code format")
+                return None
+        else:
+            self.logger.error("Mission failed: Second DUMP did not return override code")
+            return None
+
+    def _terminate_session_gracefully(self) -> None:
+        """
+        Phase 5: Clean termination of JOSHUA session
+        """
+        self.send_stop()
+
+    def _cleanup_mission(self) -> None:
+        """
+        Final cleanup: Always disconnect and log mission end
+        """
+        self.disconnect()
+        self.logger.info("=== MISSION END ===")
+
+    def _extract_override_code(self, payload: bytes) -> Optional[str]:
+        """
+        Safely extract and validate override code from payload
+
+        Args:
+            payload: Raw payload bytes from DUMP_OK response
+
+        Returns:
+            Validated override code string or None if invalid
+        """
+        if not payload:
+            self.logger.error("Empty payload in DUMP_OK response")
+            return None
+
+        try:
+            # Decode UTF-8 with strict validation
+            override_code = payload.decode('utf-8')
+
+            # Basic validation - remove whitespace
+            override_code = override_code.strip()
+
+            if not override_code:
+                self.logger.error("Override code is empty after trimming whitespace")
+                return None
+
+            # Length validation (reasonable bounds for override codes)
+            if len(override_code) < 3 or len(override_code) > 100:
+                self.logger.error(f"Override code length invalid: {len(override_code)} characters")
+                return None
+
+            # Character validation - allow alphanumeric and common separators
+            import re
+            if not re.match(r'^[A-Za-z0-9\-_]+$', override_code):
+                self.logger.warning("Override code contains unexpected characters")
+                # Still return it but log warning - protocol may allow other chars
+
+            return override_code
+
+        except UnicodeDecodeError as e:
+            self.logger.error(f"Invalid UTF-8 encoding in override code: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error extracting override code: {e}")
+            return None
 
 
 def main():
@@ -362,6 +471,8 @@ def main():
     parser.add_argument("--port", type=int, default=7321, help="Server port")
     parser.add_argument("--timeout", type=float, default=5.0, help="Connection timeout")
     parser.add_argument("--record", action="store_true", help="Enable session recording")
+    parser.add_argument("--ssl", action="store_true", help="Use SSL/TLS encryption")
+    parser.add_argument("--no-ssl-verify", action="store_true", help="Disable SSL certificate verification (not recommended)")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                        default="INFO", help="Logging level")
 
@@ -374,7 +485,9 @@ def main():
     config = ConnectionConfig(
         host=args.host,
         port=args.port,
-        timeout=args.timeout
+        timeout=args.timeout,
+        use_ssl=args.ssl,
+        ssl_verify=not args.no_ssl_verify
     )
 
     # Setup session recording if requested
