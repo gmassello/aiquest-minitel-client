@@ -88,14 +88,28 @@ pip install -e .
 
 ```bash
 # Execute the infiltration mission (host and port are now required)
-python -m minitel.client --host 35.153.159.192 --port 7321 --record
+python -m minitel.client --host <SERVER_HOST> --port <SERVER_PORT> --record
 
 # With SSL/TLS encryption (recommended for production)
-python -m minitel.client --host 35.153.159.192 --port 7321 --ssl --record
+python -m minitel.client --host <SERVER_HOST> --port <SERVER_PORT> --ssl --record
 
 # Full parameter example
-python -m minitel.client --host 35.153.159.192 --port 7321 --timeout 10 --log-level DEBUG --record
+python -m minitel.client --host <SERVER_HOST> --port <SERVER_PORT> --timeout 10 --log-level DEBUG --record
+
+# Example with localhost for testing
+python -m minitel.client --host 127.0.0.1 --port 8080 --record
+
+# Recommended: Use environment variables for production
+export JOSHUA_HOST="your.server.host"
+export JOSHUA_PORT="7321"
+python -m minitel.client --host $JOSHUA_HOST --port $JOSHUA_PORT --record
 ```
+
+**⚠️ Security Note:** Never hardcode production server details in code or documentation. Server connection details should be:
+- Provided via environment variables (recommended)
+- Passed as command-line arguments
+- Stored in secure configuration files (not committed to version control)
+- Obtained from secure configuration management systems
 
 ### Session Replay Analysis
 
@@ -267,7 +281,7 @@ This implementation meets all AI Quest Challenge requirements:
 
 The application successfully:
 
-1. **Connects** to JOSHUA system at `35.153.159.192:7321`
+1. **Connects** to JOSHUA system at specified server endpoint
 2. **Authenticates** using HELLO protocol
 3. **Executes** DUMP command twice (first fails, second succeeds)
 4. **Retrieves** nuclear override code from second DUMP response
