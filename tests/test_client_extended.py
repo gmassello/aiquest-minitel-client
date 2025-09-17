@@ -463,3 +463,42 @@ class TestClientIntegrationExtended:
 
         # Verify recording
         mock_recorder.record_response.assert_called_once_with("HELLO_ACK", 1, b"response")
+
+    def test_receive_frame_session_recorder_exception(self):
+        """Test that session recorder exceptions don't break frame processing"""
+        config = ConnectionConfig(host="test.com", port=1234)
+
+        # Create a recorder that raises exceptions
+        mock_recorder = Mock(spec=SessionRecorder)
+        mock_recorder.record_response.side_effect = Exception("Recorder failure!")
+
+        client = MiniTelClient(config, mock_recorder)
+
+        # Advance client nonce first to simulate a sent command
+        client.nonce_manager.get_next_client_nonce()  # Client sends nonce 0
+
+        # Create a valid encoded frame (server responds with nonce 1)
+        from minitel.protocol import ProtocolEncoder
+        encoder = ProtocolEncoder()
+        encoded_frame = encoder.encode_frame(Command.HELLO_ACK, 1, b"test_payload")
+
+        mock_socket = Mock()
+        mock_socket.recv.side_effect = [encoded_frame[:2], encoded_frame[2:]]
+        client.socket = mock_socket
+
+        # Mock logger to capture the warning
+        with patch.object(client.logger, 'warning') as mock_warning:
+            frame = client._receive_frame()
+
+            # Frame should still be returned despite recording failure
+            assert frame is not None
+            assert frame.cmd == Command.HELLO_ACK
+            assert frame.nonce == 1
+            assert frame.payload == b"test_payload"
+
+            # Should have logged a warning about recording failure
+            mock_warning.assert_called_once()
+            assert "Failed to record session response" in mock_warning.call_args[0][0]
+
+            # Recorder should have been called (and failed)
+            mock_recorder.record_response.assert_called_once_with("HELLO_ACK", 1, b"test_payload")

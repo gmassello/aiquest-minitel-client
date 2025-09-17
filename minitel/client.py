@@ -297,13 +297,20 @@ class MiniTelClient:
 
             # Record session if recorder is available
             if self.session_recorder:
-                if frame.cmd in Command.__members__.values():
-                    response_cmd = Command(frame.cmd).name
-                else:
-                    response_cmd = f"UNKNOWN_{frame.cmd}"
-                self.session_recorder.record_response(
-                    response_cmd, frame.nonce, frame.payload
-                )
+                try:
+                    # Safely determine command name
+                    try:
+                        response_cmd = Command(frame.cmd).name
+                    except ValueError:
+                        response_cmd = f"UNKNOWN_{frame.cmd}"
+
+                    # Record the response safely
+                    self.session_recorder.record_response(
+                        response_cmd, frame.nonce, frame.payload
+                    )
+                except Exception as e:
+                    # Session recording failure should not break frame processing
+                    self.logger.warning(f"Failed to record session response: {e}")
 
             return frame
 
