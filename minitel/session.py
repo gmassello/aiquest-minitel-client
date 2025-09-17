@@ -164,8 +164,12 @@ class SessionRecorder:
         if not self.session_entries:
             return {"status": "No interactions recorded"}
 
-        requests = [e for e in self.session_entries if e.interaction_type == "request"]
-        responses = [e for e in self.session_entries if e.interaction_type == "response"]
+        requests = [
+            e for e in self.session_entries if e.interaction_type == "request"
+        ]
+        responses = [
+            e for e in self.session_entries if e.interaction_type == "response"
+        ]
 
         command_counts = {}
         for entry in self.session_entries:
@@ -179,7 +183,10 @@ class SessionRecorder:
             "requests_sent": len(requests),
             "responses_received": len(responses),
             "command_breakdown": command_counts,
-            "average_payload_size": sum(e.payload_size for e in self.session_entries) / len(self.session_entries) if self.session_entries else 0
+            "average_payload_size": (
+                sum(e.payload_size for e in self.session_entries) /
+                len(self.session_entries) if self.session_entries else 0
+            )
         }
 
 
@@ -208,7 +215,9 @@ class SessionLoader:
                 session_data = json.load(f)
 
             if "interactions" not in session_data:
-                raise ValueError("Invalid session file format: missing 'interactions' key")
+                raise ValueError(
+                    "Invalid session file format: missing 'interactions' key"
+                )
 
             entries = []
             for interaction_data in session_data["interactions"]:
@@ -245,7 +254,9 @@ class SessionLoader:
             raise ValueError(f"Error reading session metadata: {e}")
 
     @staticmethod
-    def list_available_sessions(directory: str = "sessions") -> List[Dict[str, Any]]:
+    def list_available_sessions(
+        directory: str = "sessions"
+    ) -> List[Dict[str, Any]]:
         """
         List all available session files with their metadata
 

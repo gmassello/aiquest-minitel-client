@@ -7,14 +7,14 @@ import socket
 import ssl
 import time
 import logging
-from typing import Optional, Tuple, List
+from typing import Optional
 from dataclasses import dataclass
 
 from .protocol import (
     Command, Frame, ProtocolEncoder, ProtocolDecoder,
     NonceManager, ProtocolError, FrameValidationError
 )
-from .session import SessionRecorder, SessionEntry
+from .session import SessionRecorder
 
 
 @dataclass
@@ -38,10 +38,15 @@ class MiniTelClient:
     """
     MiniTel-Lite TCP client for NORAD emergency protocol
 
-    Handles connection management, protocol communication, and graceful error recovery.
+    Handles connection management, protocol communication,
+    and graceful error recovery.
     """
 
-    def __init__(self, config: ConnectionConfig, session_recorder: Optional[SessionRecorder] = None):
+    def __init__(
+        self,
+        config: ConnectionConfig,
+        session_recorder: Optional[SessionRecorder] = None
+    ):
         self.config = config
         self.session_recorder = session_recorder
         self.socket: Optional[socket.socket] = None
@@ -74,7 +79,10 @@ class MiniTelClient:
         for attempt in range(self.config.max_retries):
             sock = None
             try:
-                self.logger.info(f"Attempting connection to {self.config.host}:{self.config.port} (attempt {attempt + 1})")
+                self.logger.info(
+                    f"Attempting connection to {self.config.host}:"
+                    f"{self.config.port} (attempt {attempt + 1})"
+                )
 
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(self.config.timeout)
@@ -85,10 +93,15 @@ class MiniTelClient:
                     if not self.config.ssl_verify:
                         context.check_hostname = False
                         context.verify_mode = ssl.CERT_NONE
-                        self.logger.warning("SSL certificate verification disabled - not recommended for production")
+                        self.logger.warning(
+                            "SSL certificate verification disabled - "
+                            "not recommended for production"
+                        )
 
                     sock.connect((self.config.host, self.config.port))
-                    sock = context.wrap_socket(sock, server_hostname=self.config.host)
+                    sock = context.wrap_socket(
+                        sock, server_hostname=self.config.host
+                    )
                     self.logger.info("SSL/TLS connection established")
                 else:
                     sock.connect((self.config.host, self.config.port))
@@ -101,11 +114,17 @@ class MiniTelClient:
                 return True
 
             except socket.timeout:
-                self.logger.warning(f"Connection timeout on attempt {attempt + 1}")
+                self.logger.warning(
+                    f"Connection timeout on attempt {attempt + 1}"
+                )
             except socket.error as e:
-                self.logger.warning(f"Connection failed on attempt {attempt + 1}: {e}")
+                self.logger.warning(
+                    f"Connection failed on attempt {attempt + 1}: {e}"
+                )
             except Exception as e:
-                self.logger.error(f"Unexpected error on attempt {attempt + 1}: {e}")
+                self.logger.error(
+                    f"Unexpected error on attempt {attempt + 1}: {e}"
+                )
 
             # Clean up failed socket attempt
             if sock:
@@ -115,7 +134,9 @@ class MiniTelClient:
                     pass  # Ignore cleanup errors
 
             if attempt < self.config.max_retries - 1:
-                self.logger.info(f"Retrying in {self.config.retry_delay} seconds...")
+                self.logger.info(
+                    f"Retrying in {self.config.retry_delay} seconds..."
+                )
                 time.sleep(self.config.retry_delay)
 
         self.logger.error("Failed to establish connection after all attempts")
@@ -201,12 +222,19 @@ class MiniTelClient:
 
             # Validate nonce sequence
             if not self.nonce_manager.validate_server_nonce(frame.nonce):
-                self.logger.warning(f"Nonce sequence violation: received {frame.nonce}")
+                self.logger.warning(
+                    f"Nonce sequence violation: received {frame.nonce}"
+                )
 
             # Record session if recorder is available
             if self.session_recorder:
-                response_cmd = Command(frame.cmd).name if frame.cmd in Command.__members__.values() else f"UNKNOWN_{frame.cmd}"
-                self.session_recorder.record_response(response_cmd, frame.nonce, frame.payload)
+                if frame.cmd in Command.__members__.values():
+                    response_cmd = Command(frame.cmd).name
+                else:
+                    response_cmd = f"UNKNOWN_{frame.cmd}"
+                self.session_recorder.record_response(
+                    response_cmd, frame.nonce, frame.payload
+                )
 
             return frame
 

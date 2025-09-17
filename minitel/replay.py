@@ -33,10 +33,59 @@ except ImportError:
         def input(self, prompt=""):
             return input(prompt)
 
+    class Panel:
+        def __init__(self, content, title="", border_style=""):
+            self.content = content
+            self.title = title
+
+    class Table:
+        def __init__(self, **kwargs):
+            self.rows = []
+            self.columns = []
+        def add_column(self, header, **kwargs):
+            self.columns.append(header)
+        def add_row(self, *args):
+            self.rows.append(args)
+
+    class Layout:
+        def __init__(self, **kwargs):
+            pass
+        def split_column(self, *args):
+            return self
+        def split_row(self, *args):
+            return self
+        def update(self, content):
+            pass
+
+    class Live:
+        def __init__(self, layout, console=None, refresh_per_second=1):
+            self.layout = layout
+            self.console = console
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def update(self, layout):
+            pass
+
+    class Text:
+        def __init__(self, text=""):
+            self.text = text
+        def append(self, text, style=None):
+            self.text += text
+
+    class Align:
+        @staticmethod
+        def center(content):
+            return content
+
     # For now, exit gracefully if Rich not available for TUI
     # In production, implement full terminal fallback
     if __name__ == "__main__":
-        print("Error: TUI replay requires Rich library. Install with: pip install rich")
+        print(
+            "Error: TUI replay requires Rich library. "
+            "Install with: pip install rich"
+        )
         sys.exit(1)
 
 from .session import SessionEntry, SessionLoader
@@ -92,7 +141,9 @@ class SessionReplayTUI:
         progress = f"Step {self.current_step + 1} of {total_steps}"
 
         header_text = Text()
-        header_text.append("🚨 NORAD SESSION REPLAY ANALYSIS 🚨", style="bold red")
+        header_text.append(
+            "🚨 NORAD SESSION REPLAY ANALYSIS 🚨", style="bold red"
+        )
         header_text.append(f"\n{progress}", style="bold yellow")
 
         return Panel(
@@ -115,8 +166,12 @@ class SessionReplayTUI:
         table.add_column("Value", style="white", min_width=40)
 
         table.add_row("Timestamp", self._format_timestamp(entry.timestamp))
-        table.add_row("Type", f"[{color}]{entry.interaction_type.upper()}[/{color}]")
-        table.add_row("Command", f"[bold {color}]{entry.command}[/bold {color}]")
+        table.add_row(
+            "Type", f"[{color}]{entry.interaction_type.upper()}[/{color}]"
+        )
+        table.add_row(
+            "Command", f"[bold {color}]{entry.command}[/bold {color}]"
+        )
         table.add_row("Nonce", str(entry.nonce))
         table.add_row("Payload Size", f"{entry.payload_size} bytes")
         table.add_row("Payload", self._format_payload(entry.payload_data))
@@ -161,7 +216,9 @@ class SessionReplayTUI:
         start_idx = max(0, self.current_step - 2)
         end_idx = min(len(self.session_entries), self.current_step + 3)
 
-        table = Table(show_header=True, header_style="bold magenta", show_lines=True)
+        table = Table(
+            show_header=True, header_style="bold magenta", show_lines=True
+        )
         table.add_column("#", justify="right", style="dim", width=3)
         table.add_column("Time", style="dim", width=12)
         table.add_column("Type", width=8)
@@ -295,14 +352,19 @@ Press any key to return to session replay...
         self.console.clear()
 
         try:
-            with Live(self._create_layout(), console=self.console, refresh_per_second=10) as live:
+            with Live(
+                self._create_layout(),
+                console=self.console,
+                refresh_per_second=10
+            ) as live:
                 while self.running:
                     # Update the layout
                     live.update(self._create_layout())
 
                     # Get user input (non-blocking would be better, but this works)
                     try:
-                        # Use a simple input method for cross-platform compatibility
+                        # Use a simple input method for
+                        # cross-platform compatibility
                         key = self.console.input("")
                         if not self.handle_input(key):
                             break
@@ -315,14 +377,18 @@ Press any key to return to session replay...
             self.console.print(f"[red]Error in TUI: {e}[/red]")
         finally:
             self.console.clear()
-            self.console.print("[green]Session replay terminated. Stay vigilant, Agent.[/green]")
+            self.console.print(
+                "[green]Session replay terminated. Stay vigilant, Agent.[/green]"
+            )
 
 
 def main():
     """Command-line entry point for session replay"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="NORAD Session Replay Analysis Tool")
+    parser = argparse.ArgumentParser(
+        description="NORAD Session Replay Analysis Tool"
+    )
     parser.add_argument("session_file", nargs="?", help="Path to session JSON file")
     parser.add_argument("--list", action="store_true",
                        help="List available session files")

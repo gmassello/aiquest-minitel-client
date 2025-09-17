@@ -42,7 +42,9 @@ class Frame:
         if len(self.payload) > 65535:
             raise ValueError(f"Payload too large: {len(self.payload)} bytes")
         if len(self.hash_value) != 32:
-            raise ValueError(f"Invalid hash length: {len(self.hash_value)} bytes")
+            raise ValueError(
+                f"Invalid hash length: {len(self.hash_value)} bytes"
+            )
 
 
 class ProtocolError(Exception):
@@ -67,7 +69,8 @@ class ProtocolEncoder:
         LEN (2 bytes, big-endian) | DATA_B64 (LEN bytes, Base64 encoded)
 
         Binary Frame (before Base64):
-        CMD (1 byte) | NONCE (4 bytes, big-endian) | PAYLOAD (0-65535 bytes) | HASH (32 bytes SHA-256)
+        CMD (1 byte) | NONCE (4 bytes, big-endian) |
+        PAYLOAD (0-65535 bytes) | HASH (32 bytes SHA-256)
         """
         # Build binary frame components
         cmd_bytes = struct.pack(">B", cmd)
@@ -118,7 +121,9 @@ class ProtocolDecoder:
         length = struct.unpack(">H", data[:2])[0]
 
         if len(data) < 2 + length:
-            raise ProtocolError(f"Insufficient data: expected {2 + length}, got {len(data)}")
+            raise ProtocolError(
+                f"Insufficient data: expected {2 + length}, got {len(data)}"
+            )
 
         # Extract Base64 data
         b64_data = data[2:2 + length]
@@ -144,7 +149,9 @@ class ProtocolDecoder:
         if not hmac.compare_digest(received_hash, expected_hash):
             raise FrameValidationError("Hash validation failed")
 
-        return Frame(cmd=cmd, nonce=nonce, payload=payload, hash_value=received_hash)
+        return Frame(
+            cmd=cmd, nonce=nonce, payload=payload, hash_value=received_hash
+        )
 
     @staticmethod
     def extract_length(data: bytes) -> Optional[int]:
@@ -152,7 +159,8 @@ class ProtocolDecoder:
         Extract the expected frame length from the first 2 bytes
 
         Returns:
-            Expected total frame size (including 2-byte prefix) or None if insufficient data
+            Expected total frame size (including 2-byte prefix)
+            or None if insufficient data
         """
         if len(data) < 2:
             return None
