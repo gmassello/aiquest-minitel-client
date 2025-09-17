@@ -203,6 +203,10 @@ class NonceManager:
         expected = self._current_nonce - 1  # Server should respond with client_nonce + 1
         return received_nonce == expected
 
+    def get_expected_server_nonce(self) -> int:
+        """Get the expected server nonce value for error reporting"""
+        return self._current_nonce - 1
+
     def reset(self):
         """Reset nonce sequence (for new connections)"""
         self._current_nonce = 0

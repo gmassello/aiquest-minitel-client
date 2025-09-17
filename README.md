@@ -82,6 +82,9 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -e .
+
+# For development (includes testing tools)
+pip install -e ".[dev]"
 ```
 
 ### Mission Execution

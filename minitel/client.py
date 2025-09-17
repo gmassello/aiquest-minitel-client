@@ -280,9 +280,12 @@ class MiniTelClient:
 
             # Validate nonce sequence
             if not self.nonce_manager.validate_server_nonce(frame.nonce):
-                self.logger.warning(
-                    f"Nonce sequence violation: received {frame.nonce}"
+                self.logger.error(
+                    f"PROTOCOL VIOLATION: Nonce sequence mismatch. Expected {self.nonce_manager.get_expected_server_nonce()}, received {frame.nonce}. Terminating connection for security."
                 )
+                # Protocol requires immediate disconnection on nonce violation
+                self.disconnect()
+                return None
 
             # Record session if recorder is available
             if self.session_recorder:
